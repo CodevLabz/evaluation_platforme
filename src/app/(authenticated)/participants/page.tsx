@@ -1,6 +1,7 @@
 'use client'
 import React, { useState } from "react";
 import { Search, Plus, Edit2, Trash2, Check, X, Upload, QrCode, FileText, Download, Info } from "lucide-react";
+import { QRBadgeModal } from 'src/components/QRBadgeModal';
 type Category = "student" | "teacher" | "professional" | "other";
 type Participant = {
   id: string;
@@ -46,6 +47,7 @@ export default function Participants() {
   const [showDocumentModal, setShowDocumentModal] = useState(false);
   const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showQRBadgeModal, setShowQRBadgeModal] = useState(false);
   const handleStatusChange = (id: string, newStatus: "pending" | "accepted" | "paid") => {
     setParticipants(participants.map(p => p.id === id ? {
       ...p,
@@ -204,9 +206,13 @@ export default function Participants() {
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-semibold mb-4">Generate Documents</h3>
             <div className="space-y-4">
-              <button className="w-full flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50" onClick={() => {
-            /* Handle QR code generation */
-          }}>
+              <button
+                className="w-full flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
+                onClick={() => {
+                  setShowDocumentModal(false);
+                  setShowQRBadgeModal(true);
+                }}
+              >
                 <span className="flex items-center">
                   <QrCode className="mr-2" size={20} />
                   QR Code Badge
@@ -292,5 +298,16 @@ export default function Participants() {
             </div>
           </div>
         </div>}
+      {showQRBadgeModal && selectedParticipant && (
+        <QRBadgeModal
+          participant={{
+            id: selectedParticipant.id,
+            name: selectedParticipant.name,
+            category: selectedParticipant.category,
+            organization: selectedParticipant.organization
+          }}
+          onClose={() => setShowQRBadgeModal(false)}
+        />
+      )}
     </div>;
 };
