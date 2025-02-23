@@ -4,9 +4,15 @@ import Form, { Participant } from 'src/models/Form';
 import mongoose from 'mongoose';
 import connectDB from 'src/lib/mongodb';
 
-export async function GET() {
+export const dynamic = 'force-dynamic';
+export async function GET(request: Request) {
   await connectDB();
-
+  const { searchParams } = new URL(request.url);
+  
+  const page = parseInt(searchParams.get('page') || '1');
+  const limit = parseInt(searchParams.get('limit') || '10');
+  const search = searchParams.get('search') || '';
+  
   try {
     const forms = await Form.find().lean();
     const participants: Set<Participant> = new Set();
@@ -115,7 +121,34 @@ export async function GET() {
       }
     });
 
-    return NextResponse.json(Array.from(participants));
+    let filteredParticipants = Array.from(participants);
+    
+    // Apply search filter
+    if (search) {
+      filteredParticipants = filteredParticipants.filter(p => 
+        p.name.toLowerCase().includes(search.toLowerCase()) ||
+        p.email.toLowerCase().includes(search.toLowerCase()) ||
+        p.institution?.toLowerCase().includes(search.toLowerCase())
+      );
+    }
+
+    // Calculate pagination
+    const totalItems = filteredParticipants.length;
+    const totalPages = Math.ceil(totalItems / limit);
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    
+    const paginatedParticipants = filteredParticipants.slice(startIndex, endIndex);
+
+    return NextResponse.json({
+      participants: paginatedParticipants,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalItems,
+        limit
+      }
+    });
   } catch (error) {
     return NextResponse.json(
       { error: 'Failed to fetch participants' },

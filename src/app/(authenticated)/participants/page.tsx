@@ -46,11 +46,25 @@ type IForm = {
   };
 };
 
+interface Pagination {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  limit: number;
+}
+
 export default function Participants() {
   const [participants, setParticipants] = useState<IForm[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [pagination, setPagination] = useState<Pagination>({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+    limit: 10
+  });
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [newParticipant, setNewParticipant] = useState({
     name: "",
@@ -63,18 +77,31 @@ export default function Participants() {
   const [showQRBadgeModal, setShowQRBadgeModal] = useState(false);
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  useEffect(() => {
     fetchParticipants();
-  }, []);
+  }, [pagination.currentPage, debouncedSearchTerm]);
 
   const fetchParticipants = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/participants');
+      const response = await fetch(
+        `/api/participants?page=${pagination.currentPage}&limit=${pagination.limit}&search=${debouncedSearchTerm}`
+      );
+      
       if (!response.ok) {
         throw new Error('Failed to fetch participants');
       }
+      
       const data = await response.json();
-      setParticipants(data);
+      setParticipants(data.participants);
+      setPagination(data.pagination);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -139,8 +166,6 @@ export default function Participants() {
     setShowPaymentModal(false);
     setShowDocumentModal(true);
   };
-
-  const filteredParticipants = participants.filter((p: any) => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.email.toLowerCase().includes(searchTerm.toLowerCase()));
 
   if (loading) {
     return (
@@ -210,7 +235,7 @@ export default function Participants() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredParticipants.map((participant: any) => (
+              {participants.map((participant: any) => (
                 <tr key={participant.id}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
@@ -291,6 +316,55 @@ export default function Participants() {
               ))}
             </tbody>
           </table>
+        </div>
+        
+        {/* Pagination controls */}
+        <div className="px-6 py-4 flex items-center justify-between border-t border-gray-200">
+          <div className="flex-1 flex justify-between sm:hidden">
+            <button
+              onClick={() => setPagination(prev => ({ ...prev, currentPage: prev.currentPage - 1 }))}
+              disabled={pagination.currentPage === 1}
+              className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => setPagination(prev => ({ ...prev, currentPage: prev.currentPage + 1 }))}
+              disabled={pagination.currentPage === pagination.totalPages}
+              className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+            >
+              Next
+            </button>
+          </div>
+          <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm text-gray-700">
+                Showing <span className="font-medium">{((pagination.currentPage - 1) * pagination.limit) + 1}</span> to{' '}
+                <span className="font-medium">
+                  {Math.min(pagination.currentPage * pagination.limit, pagination.totalItems)}
+                </span>{' '}
+                of <span className="font-medium">{pagination.totalItems}</span> results
+              </p>
+            </div>
+            <div>
+              <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                {/* Generate page numbers */}
+                {[...Array(pagination.totalPages)].map((_, i) => (
+                  <button
+                    key={i + 1}
+                    onClick={() => setPagination(prev => ({ ...prev, currentPage: i + 1 }))}
+                    className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                      pagination.currentPage === i + 1
+                        ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                        : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                    }`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+              </nav>
+            </div>
+          </div>
         </div>
       </div>
       {showPaymentModal && selectedParticipant && <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
