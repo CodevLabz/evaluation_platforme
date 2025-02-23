@@ -9,7 +9,7 @@ export async function GET() {
 
   try {
     const forms = await Form.find().lean();
-    const participants: Participant[] = [];
+    const participants: Set<Participant> = new Set();
 
     forms.forEach(form => {
       const baseParticipant = {
@@ -29,7 +29,7 @@ export async function GET() {
       switch(form.formType) {
         case 'communication':
           // Add main author
-          participants.push({
+          participants.add({
             ...baseParticipant,
             name: form.contact.name,
             email: form.contact.email,
@@ -40,7 +40,7 @@ export async function GET() {
 
           // Add co-authors
           form.communicationDetails?.coAuthors?.forEach((coAuthor: any) => {
-            participants.push({
+            participants.add({
               ...baseParticipant,
               id: new mongoose.Types.ObjectId().toString(),
               name: coAuthor.name,
@@ -54,7 +54,8 @@ export async function GET() {
 
         case 'symposium':
           if (form.symposiumDetails?.coordinator) {
-            participants.push({
+            // First add the coordinator
+            participants.add({
               ...baseParticipant,
               name: form.symposiumDetails.coordinator.name,
               email: form.symposiumDetails.coordinator.email,
@@ -62,12 +63,33 @@ export async function GET() {
               type: 'coordinator',
               symposiumDetails: form.symposiumDetails
             });
+
+            // Then add unique contributions by checking if participant doesn't already exist
+            form.symposiumDetails.contributions?.forEach((contribution: any) => {
+              const participantExists = Array.from(participants).some(
+                (p: any) => 
+                  p.email === contribution.author.email && 
+                  p.formId === (form._id as any).toString()
+              );
+
+              if (!participantExists) {
+                participants.add({
+                  ...baseParticipant,
+                  id: new mongoose.Types.ObjectId().toString(),
+                  name: contribution.author.name,
+                  email: contribution.author.email,
+                  institution: contribution.author.affiliation,
+                  type: 'coAuthor',
+                  symposiumDetails: form.symposiumDetails
+                });
+              }
+            });
           }
           break;
 
         case 'roundtable':
           if (form.roundtableDetails?.organizer) {
-            participants.push({
+            participants.add({
               ...baseParticipant,
               name: form.roundtableDetails.organizer.name,
               email: form.roundtableDetails.organizer.institution,
@@ -78,7 +100,7 @@ export async function GET() {
 
             // Add roundtable participants
             form.roundtableDetails.participants?.forEach((participant: any) => {
-              participants.push({
+              participants.add({
                 ...baseParticipant,
                 id: new mongoose.Types.ObjectId().toString(),
                 name: participant.name,
@@ -93,7 +115,7 @@ export async function GET() {
       }
     });
 
-    return NextResponse.json(participants);
+    return NextResponse.json(Array.from(participants));
   } catch (error) {
     return NextResponse.json(
       { error: 'Failed to fetch participants' },
