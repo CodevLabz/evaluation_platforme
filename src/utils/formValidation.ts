@@ -29,6 +29,7 @@ const contributionSchema = z.object({
 
 const baseFormSchema = z.object({
   finalVersion: z.boolean().optional(),
+  summary: z.string().optional(),
 });
 
 // Form type specific schemas
