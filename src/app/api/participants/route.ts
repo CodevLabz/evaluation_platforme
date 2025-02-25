@@ -3,8 +3,16 @@ import { NextResponse } from 'next/server';
 import Form, { Participant } from 'src/models/Form';    
 import mongoose from 'mongoose';
 import connectDB from 'src/lib/mongodb';
+import { setCorsHeaders } from 'src/utils/cors';
 
 export const dynamic = 'force-dynamic';
+
+// Add OPTIONS handler for preflight requests
+export async function OPTIONS() {
+  const response = new NextResponse(null, { status: 200 });
+  return setCorsHeaders(response);
+}
+
 export async function GET(request: Request) {
   await connectDB();
   const { searchParams } = new URL(request.url);
@@ -140,7 +148,7 @@ export async function GET(request: Request) {
     
     const paginatedParticipants = filteredParticipants.slice(startIndex, endIndex);
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       participants: paginatedParticipants,
       pagination: {
         currentPage: page,
@@ -149,10 +157,13 @@ export async function GET(request: Request) {
         limit
       }
     });
+
+    return setCorsHeaders(response);
   } catch (error) {
-    return NextResponse.json(
+    const response = NextResponse.json(
       { error: 'Failed to fetch participants' },
       { status: 500 }
     );
+    return setCorsHeaders(response);
   }
 }

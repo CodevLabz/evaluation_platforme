@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server';
 import connectDB from 'src/lib/mongodb';
 import { FormService } from 'src/services/formService';
-
+import { setCorsHeaders } from 'src/utils/cors';
+export async function OPTIONS() {
+  const response = new NextResponse(null, { status: 200 });
+  return setCorsHeaders(response);
+}
 export async function POST(request: Request) {
   try {
     await connectDB();
-    
     const body = await request.json();
     const headers = request.headers;
 
